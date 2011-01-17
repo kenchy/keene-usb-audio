@@ -1,0 +1,26 @@
+v0.1 17/01/2011
+
+Keene Electronics sell a little USB FM Transmitter, which works out of the box with linux, but the applet supplied to do the radio stuff
+only works with Windows.
+
+Using Snoop USB for Windows XP and usbsnoop2libusb.pl, some code somebody wrote for the OWL, this program attempts to control the FM transmitter
+side of the device.
+
+Compiling:
+
+You need libusb and libusb-dev,
+
+gcc -o keene keene.c -lusb
+
+Using:
+
+When you plug the device in, it presents as a composite device, one is the audio device, the other a HID device. The audio device has a single ALSA control which 
+is set to 0, set this to about 80.
+
+THe program accepts one argument which is the FM transmitter frequency without decimal place, e.g. 98.80 is 9880, execute the program like:
+
+./keene 9880
+
+When excuted the program will attempt to set the frequency as set, it will set the tx gain to full, kick the device into stereo, and set it to use European FM.
+
+NOTE: This is very rough and ready. Use at your own risk.
