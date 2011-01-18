@@ -4,19 +4,19 @@
 #include <errno.h>
 
 extern int errnol;
-usb_dev_handle  *owlhandle;
+usb_dev_handle  *keenehandle;
 
-#define owlVID  0x046d
-#define owlPID  0x0a0e
+#define keeneVID  0x046d
+#define keenePID  0x0a0e
 
 // ** cleanup() *****************************************************
 void cleanup() {
     usb_set_debug(0);
     // if we have the USB device, hand it back
-    if (owlhandle) {
-        usb_release_interface(owlhandle,2);
+    if (keenehandle) {
+        usb_release_interface(keenehandle,2);
     }
-    usb_close(owlhandle);
+    usb_close(keenehandle);
     exit(errno);
 }
 
@@ -54,7 +54,7 @@ usb_dev_handle * GetFirstDevice(int vendorid, int productid) {
   return (device_handle);  
 }
 
-int owl_sendget(usb_dev_handle *handle, char *senddata ) {
+int keene_sendget(usb_dev_handle *handle, char *senddata ) {
     unsigned char buf[64];
     int rc;
 
@@ -79,18 +79,17 @@ int main(int argc, char *argv[]) {
 
     freq_in = atoi(argv[1]); 
     fprintf (stderr,"begin %d freq_in \n",freq_in);
-    if ((freq_in < 8800)&&(freq_in > 8750)) {
+    if ((freq_in < 8880)&&(freq_in > 8749)) {
         freq_2 = 0;
-        freq_3 = ((freq_in -7605)/5);
+        freq_3 = ((freq_in -7600)/5);
         fprintf (stderr,"in low %d freq_3 %d freq_2 \n",freq_3,freq_2);
         
-    } else if ((freq_in > 10160)&&(freq_in < 10800)) {
+    } else if ((freq_in > 10155)&&(freq_in < 10801)) {
         freq_2 = 2;
-        freq_3 = ((freq_in -10155)/5);
+        freq_3 = ((freq_in -10160)/5);
         fprintf (stderr,"in high %d freq_3 %d freq_2 \n",freq_3,freq_2);
 
-    } else if ((freq_in > 8879 )&&(freq_in < 10165)) {
-
+    } else if ((freq_in > 8875 )&&(freq_in < 10160)) {
         freq_2 = 1;
         freq_3 = ((freq_in -8880)/5);
         fprintf (stderr,"in middle %d freq_3 %d freq_2 \n",freq_3,freq_2);
@@ -110,30 +109,30 @@ int main(int argc, char *argv[]) {
 
     fprintf (stderr,"%d freq_3 %x freqhex %s hexdata \n",freq_3,freq_3,hexdata);
 
-    owlhandle = GetFirstDevice(owlVID,owlPID);
+    keenehandle = GetFirstDevice(keeneVID,keenePID);
 
     // Find the USB connect
-    if (!owlhandle) {
+    if (!keenehandle) {
         perror(" ! Error opening device!");
         exit(errno);
     }
 
     // See if we can talk to the device.
-    rc = usb_claim_interface(owlhandle,2);
-    // If not, we might need to wrestle the owl off the HID driver
+    rc = usb_claim_interface(keenehandle,2);
+    // If not, we might need to wrestle the keene off the HID driver
     if (rc==-16) {
 	    //need to grab the device the second bit of the HID device
-            rc = usb_detach_kernel_driver_np(owlhandle,2);
+            rc = usb_detach_kernel_driver_np(keenehandle,2);
             if(rc < 0) {
                 perror(" ! usbhid wouldn't let go?");
                 cleanup();
             }
         // try again
-        rc = usb_claim_interface(owlhandle,2);
+        rc = usb_claim_interface(keenehandle,2);
     }
 
     // Claim the interface
-    rc = usb_claim_interface(owlhandle,2);
+    rc = usb_claim_interface(keenehandle,2);
     if(rc < 0) {
         perror(" ! Error claiming the interface (claim interface 2)");
         cleanup();
@@ -147,11 +146,11 @@ int main(int argc, char *argv[]) {
     // 0x40=92.00, one increment =0.05`
     // 0xe0=100.00
     // 0xff=101.55
-    owl_sendget(owlhandle,hexdata);
+    keene_sendget(keenehandle,hexdata);
 
     //Device setup this line should set the TX gain fully on
     //Should set to Europe de-em, Stereo, 50khz, and Europe Band
-    owl_sendget(owlhandle, "\x00\x51\x50\x20\x00\x00\x00\x44") ;
+    keene_sendget(keenehandle, "\x00\x51\x50\x20\x00\x00\x00\x44") ;
 
     cleanup();
 }
