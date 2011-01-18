@@ -45,7 +45,7 @@ usb_dev_handle * GetFirstDevice(int vendorid, int productid) {
     if(!device_handle) {
       return NULL;
     }
-    fprintf(stderr," + Found audio transmiter on bus %s dev %s\n", dev->bus->dirname, dev->filename);
+    //fprintf(stderr," + Found audio transmiter on bus %s dev %s\n", dev->bus->dirname, dev->filename);
     return (device_handle);    
       }
     }
@@ -60,8 +60,8 @@ int keene_sendget(usb_dev_handle *handle, char *senddata ) {
 
     memcpy(buf, senddata, 0x0000008);
     rc = usb_control_msg(handle, USB_TYPE_CLASS + USB_RECIP_INTERFACE, 0x0000009, 0x0000200, 0x0000002, buf, 0x0000008, 1000);
-    printf("30 control msg returned %d", rc);
-    printf("\n");
+    //printf("30 control msg returned %d", rc);
+    //printf("\n");
 
     if(rc < 0) {
             perror(" ! Transfer error");
@@ -78,24 +78,24 @@ int main(int argc, char *argv[]) {
     unsigned char hexdata[64];
 
     freq_in = atoi(argv[1]); 
-    fprintf (stderr,"begin %d freq_in \n",freq_in);
+    //fprintf (stderr,"begin %d freq_in \n",freq_in);
     if ((freq_in < 8880)&&(freq_in > 8749)) {
         freq_2 = 0;
         freq_3 = ((freq_in -7600)/5);
-        fprintf (stderr,"in low %d freq_3 %d freq_2 \n",freq_3,freq_2);
+        //fprintf (stderr,"in low %d freq_3 %d freq_2 \n",freq_3,freq_2);
         
     } else if ((freq_in > 10155)&&(freq_in < 10801)) {
         freq_2 = 2;
         freq_3 = ((freq_in -10160)/5);
-        fprintf (stderr,"in high %d freq_3 %d freq_2 \n",freq_3,freq_2);
+        //fprintf (stderr,"in high %d freq_3 %d freq_2 \n",freq_3,freq_2);
 
     } else if ((freq_in > 8875 )&&(freq_in < 10160)) {
         freq_2 = 1;
         freq_3 = ((freq_in -8880)/5);
-        fprintf (stderr,"in middle %d freq_3 %d freq_2 \n",freq_3,freq_2);
+        //fprintf (stderr,"in middle %d freq_3 %d freq_2 \n",freq_3,freq_2);
     } else {
         perror(" ! Frequency out of range");
-        cleanup;
+        cleanup();
     }
 	
     hexdata[0]=0x00;
@@ -107,7 +107,7 @@ int main(int argc, char *argv[]) {
     hexdata[6]=0x00;
     hexdata[7]=0x44;
 
-    fprintf (stderr,"%d freq_3 %x freqhex %s hexdata \n",freq_3,freq_3,hexdata);
+    //fprintf (stderr,"%d freq_3 %x freqhex %s hexdata \n",freq_3,freq_3,hexdata);
 
     keenehandle = GetFirstDevice(keeneVID,keenePID);
 
@@ -137,7 +137,7 @@ int main(int argc, char *argv[]) {
         perror(" ! Error claiming the interface (claim interface 2)");
         cleanup();
     }
-    fprintf(stderr," + Done\n");
+    //fprintf(stderr," + Done\n");
     //right we have the device do some stuff to it
     //keep it simple.. set stereo, set frequency, set gain, set on
 
