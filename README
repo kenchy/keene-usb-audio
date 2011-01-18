@@ -4,12 +4,12 @@ Keene Electronics sell a little USB FM Transmitter, which works out of the box w
 but the applet supplied to do the radio stuff only works with Windows.
 
 Using Snoop USB for Windows XP and usbsnoop2libusb.pl, some code somebody wrote for the OWL,
-, I reverse engineered most of the key functions, and this program attempts to control the FM
+I reverse engineered most of the key functions, and this program attempts to control the FM
 transmitter side of the device.
 
 Compiling:
 
-You need libusb and libusb-dev,
+You need libusb and libusb-dev (in Debian apt-get install libusb libusb-dev),
 
 gcc -o keene keene.c -lusb
 
@@ -29,10 +29,21 @@ full, kick the device into stereo, and set it to use European FM, as such the fr
 87.50 - 108.00 (8800 - 10800). The increments available are 0.05, if you call 8881 for example it will 
 round to 88.80.
 
+Currently this needs root, I suspect a udev rule is required.
+
 The USB ID of my device is 046d:0a0e, if yours is different then you'll need to change the source.
 
-NOTE: This is very rough and ready. Use at your own risk.
+NOTE: This is very rough and ready. Use at your own risk. As you can see my C skillz are virtually non-existent,
+please be kind.
 
 TODO: 
 Figure out how to run it as non-root
 Allow configurable for not EU FM
+
+ACKNOWLEDGEMENT:
+Thanks to Anonymous Graham in the comments here, for giving me the basis for this code. 
+http://automation.binarysage.net/?p=765&cpage=3#comments
+
+LICENSE:
+No specific license, please feel free to do what you want with it. If you improve it please let me know
+as I like to learn.
