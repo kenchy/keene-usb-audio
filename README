@@ -4,8 +4,10 @@ Keene Electronics sell a little USB FM Transmitter, the audio part of which work
 but the applet supplied to do the radio stuff only works with Windows. See:
 
 http://www.keene.co.uk/electronics/multi.php?mycode=USBFMT#
-(Supposedly the Windows program works under linux using wine/winetricks but I could never get it to work, plus my audio server runs headless.)
-good review here:
+(Supposedly the Windows program works under linux using wine/winetricks but I could never get it to work, 
+plus my audio server runs headless.)
+
+Good review here:
 http://www.reghardware.com/2010/09/27/review_gadget_keene_usb_fm_transmitter/
 
 Using Snoop USB for Windows XP, usbsnoop2libusb.pl, and some code somebody wrote for the OWL
@@ -18,14 +20,15 @@ You need libusb and libusb-dev (in Debian apt-get install libusb libusb-dev),
 
 gcc -o keene keene.c -lusb
 
-Using:
+Usage:
 
 When you plug the device in, it presents as a composite device, one is the audio device,
-the other a HID device. On one of my PC's the alsa control is set to 0 after the device is 
-plugged in, set this to about 80, if FM is distorted try reducing this.
+the other a HID device, which controls the radio elements. On one of my PC's the alsa control
+is set to 0 after the device is plugged in, set this to 70-80, if the audio is distorted try
+reducing this.
 
-The program accepts one argument which is the FM transmitter frequency without decimal place,
-e.g. 98.80 is 9880, execute the program like:
+The program currently accepts one argument which is the FM transmitter frequency without a
+decimal point, e.g. 98.80 is 9880, execute the program like:
 
 ./keene 9880
 
@@ -34,22 +37,30 @@ full, kick the device into stereo, and set it to use European FM, as such the fr
 87.50 - 108.00 (8750 - 10800). The increments available are 0.05, if you call 8881 for example it will 
 round to 88.80.
 
-Currently this needs root, I suspect a udev rule is required.
+By default USB devices under linux can only be used by root, this udev rule (if placed in a file in
+/etc/udev/rules.d, called for example 99-audioperms.rules ) seems to sort that out:
+ATTRS{idVendor}=="046d", ATTRS{idProduct}=="0a0e", \
+               MODE="0660", GROUP="dialout"
+Change the group to one you are a member of and after a replug you should be able to execute as a non-root
+user that is a member of that group.
 
-The USB ID of my device is 046d:0a0e, if yours is different then you'll need to change the source.
+The USB ID of my device is 046d:0a0e, if yours is different then you'll need to change the source, and the udev rule.
 
 NOTE: This is very rough and ready. Use at your own risk. As you can see my C skillz are virtually non-existent,
 please be kind.
 
 TODO: 
-Figure out how to run it as non-root
-Allow configurable for not EU FM
+Allow configuration of other parameters, such as tx gain, deemphasis, FM band.
+Document what the two control registers do.
+Could this be integrated into a more generic linux FM tools.
 
 ACKNOWLEDGEMENT:
 Thanks to Anonymous Graham in the comments here, for giving me the basis for this code. 
 http://automation.binarysage.net/?p=765&cpage=3#comments
 Thanks to te author of usbsnoop2libusb.pl, that provided much help in figuring out the format of the urb messages.
 http://iki.fi/lindi/usb/usbsnoop2libusb.pl
+Thanks to Keene for supplying some information about the device, I will try and use it improve the tx gain control,
+which wasn't fully clear from the Snoop USB logs.
 
 LICENSE:
 No specific license, please feel free to do what you want with it. If you improve it please let me know
