@@ -1,11 +1,16 @@
 v0.2 18/01/2011
 
-Keene Electronics sell a little USB FM Transmitter, which works out of the box with linux, 
-but the applet supplied to do the radio stuff only works with Windows.
+Keene Electronics sell a little USB FM Transmitter, the audio part of which works out of the box with linux, 
+but the applet supplied to do the radio stuff only works with Windows. See:
 
-Using Snoop USB for Windows XP and usbsnoop2libusb.pl, some code somebody wrote for the OWL,
-I reverse engineered most of the key functions, and this program attempts to control the FM
-transmitter side of the device.
+http://www.keene.co.uk/electronics/multi.php?mycode=USBFMT#
+(Supposedly the Windows program works under linux using wine/winetricks but I could never get it to work, plus my audio server runs headless.)
+good review here:
+http://www.reghardware.com/2010/09/27/review_gadget_keene_usb_fm_transmitter/
+
+Using Snoop USB for Windows XP, usbsnoop2libusb.pl, and some code somebody wrote for the OWL
+electricity monitor, I reverse engineered most of the key functions, and this program attempts 
+to control the FM transmitter side of the device.
 
 Compiling:
 
@@ -43,6 +48,8 @@ Allow configurable for not EU FM
 ACKNOWLEDGEMENT:
 Thanks to Anonymous Graham in the comments here, for giving me the basis for this code. 
 http://automation.binarysage.net/?p=765&cpage=3#comments
+Thanks to te author of usbsnoop2libusb.pl, that provided much help in figuring out the format of the urb messages.
+http://iki.fi/lindi/usb/usbsnoop2libusb.pl
 
 LICENSE:
 No specific license, please feel free to do what you want with it. If you improve it please let me know
