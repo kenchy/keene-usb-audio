@@ -46,6 +46,9 @@ non-root user that is a member of that group.
 The USB ID of my device is 046d:0a0e, if yours is different then you'll need to change the source, 
 and the udev rule.
 
+In the binaries sub-directory you should find pre-compiled binaries for arm and x86, these were compiled on 
+Debian Squeeze systems.
+
 NOTE: This is very rough and ready. Use at your own risk. As you can see my C skillz are virtually
 non-existent, please be kind.
 
