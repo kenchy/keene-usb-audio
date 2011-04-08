@@ -1,0 +1,1 @@
+ATTRS{idVendor}=="046d", ATTRS{idProduct}=="0a0e", MODE="0660", GROUP="dialout", RUN="/path/to/keene 8760"

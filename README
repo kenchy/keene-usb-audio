@@ -36,12 +36,9 @@ full, kick the device into stereo, and set it to use European FM, as such the fr
 87.50 - 108.00 (8750 - 10800). The increments available are 0.05, if you call 8881 for example it will 
 round to 88.80.
 
-By default USB devices under linux can only be used by root, this udev rule (if placed in a file in
-/etc/udev/rules.d, called for example 99-audioperms.rules ) seems to sort that out:
-ATTRS{idVendor}=="046d", ATTRS{idProduct}=="0a0e", \
-               MODE="0660", GROUP="dialout"
-Change the group to one you are a member of and after a replug you should be able to execute as a 
-non-root user that is a member of that group.
+The udev directory contains an example rule that changes the perms on the device to be writable by group 'dialout', 
+change this group to one you are member of if you wish to use the device as none root. Also the udev rule will execute
+the binary, if you change the path in the rule.
 
 The USB ID of my device is 046d:0a0e, if yours is different then you'll need to change the source, 
 and the udev rule.
