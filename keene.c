@@ -54,6 +54,14 @@ usb_dev_handle * GetFirstDevice(int vendorid, int productid) {
   return (device_handle);  
 }
 
+int help(char *prog) {
+   printf("Usage: %s [freq] \n", prog);
+   printf("required: :freq: FM frequency to transmit with decimal e.g. 87.8 is 8780\n");
+
+   return 1;
+}
+
+
 int keene_sendget(usb_dev_handle *handle, char *senddata ) {
     unsigned char buf[64];
     int rc;
@@ -76,8 +84,16 @@ int main(int argc, char *argv[]) {
     int freq_3;
     int freq_in;
     unsigned char hexdata[64];
+    if (argc < 2) {
+        return help(argv[0]);
+    }
 
     freq_in = atoi(argv[1]); 
+    
+    if (!isdigit(freq_in)){
+        return help(argv[0]);
+    }
+
     //fprintf (stderr,"begin %d freq_in \n",freq_in);
     if ((freq_in < 8880)&&(freq_in > 8749)) {
         freq_2 = 0;
