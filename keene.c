@@ -90,9 +90,9 @@ int main(int argc, char *argv[]) {
 
     freq_in = atoi(argv[1]); 
     
-    if (!isdigit(freq_in)){
-        return help(argv[0]);
-    }
+    //if (!isdigit(freq_in)){
+     //   return help(argv[0]);
+    //}
 
     //fprintf (stderr,"begin %d freq_in \n",freq_in);
     if ((freq_in < 8880)&&(freq_in > 8749)) {
