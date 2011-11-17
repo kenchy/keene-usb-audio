@@ -92,6 +92,8 @@ int main(int argc, char *argv[]) {
 
     // most of the following code was taken from
     // http://blog.mister-muffin.de/2011/03/14/keene-fm-transmitter/
+    // and thus is Copyright (C) 2010-2011 Johannes 'josch' Schauer <j.schauer at email.de>
+    // and probably the GPLv3 applies now
     enum settings {
         PREEM_50 = 0x00,
         PREEM_75 = 0x04,
