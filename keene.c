@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <usb.h>
+#include <math.h>
 #include <errno.h>
 
 extern int errnol;
@@ -55,8 +56,9 @@ usb_dev_handle * GetFirstDevice(int vendorid, int productid) {
 }
 
 int help(char *prog) {
-   printf("Usage: %s [freq] \n", prog);
-   printf("required: :freq: FM frequency to transmit with decimal e.g. 87.8 is 8780\n");
+   printf("Usage: %s tx pre chan freq pa enable mute\n", prog);
+   printf(" The arguments correspond to\n  - TX (0-23)\n  - preemphasis (50us or 75us)\n  - channels (mono or stereo)\n  - frequency (floats from 76.0-108.0)\n  - PA (30 to 120)\n  - enable or disable\n  - mute or unmute\n If one of the arguments is - the default value is set.\n");
+   printf("\nExample: %s 0 50us stereo 90.0f 120 enable unmute\n", prog);
 
    return 1;
 }
@@ -83,45 +85,126 @@ int main(int argc, char *argv[]) {
     int freq_2;
     int freq_3;
     int freq_in;
-    unsigned char hexdata[64];
-    if (argc < 2) {
+
+    if (argc != 8) {
         return help(argv[0]);
     }
 
-    freq_in = atoi(argv[1]); 
-    
-    //if (!isdigit(freq_in)){
-     //   return help(argv[0]);
-    //}
+    // most of the following code was taken from
+    // http://blog.mister-muffin.de/2011/03/14/keene-fm-transmitter/
+    enum settings {
+        PREEM_50 = 0x00,
+        PREEM_75 = 0x04,
+        STEREO = 0x00,
+        MONO = 0x01,
+        ENABLE = 0x01,
+        DISABLE = 0x2,
+        MUTE = 0x04,
+        UNMUTE = 0x08,
+        FREQ = 0x10
+    };
 
-    //fprintf (stderr,"begin %d freq_in \n",freq_in);
-    if ((freq_in < 8880)&&(freq_in > 8749)) {
-        freq_2 = 0;
-        freq_3 = ((freq_in -7600)/5);
-        //fprintf (stderr,"in low %d freq_3 %d freq_2 \n",freq_3,freq_2);
-        
-    } else if ((freq_in > 10155)&&(freq_in < 10801)) {
-        freq_2 = 2;
-        freq_3 = ((freq_in -10160)/5);
-        //fprintf (stderr,"in high %d freq_3 %d freq_2 \n",freq_3,freq_2);
+    unsigned char conf1[8] = "\x00\x50\x00\x00\x00\x00\x00\x00";
+    unsigned char conf2[8] = "\x00\x51\x00\x00\x00\x00\x00\x00";
 
-    } else if ((freq_in > 8875 )&&(freq_in < 10160)) {
-        freq_2 = 1;
-        freq_3 = ((freq_in -8880)/5);
-        //fprintf (stderr,"in middle %d freq_3 %d freq_2 \n",freq_3,freq_2);
+    int ival, ret;
+    float fval;
+
+    // get TX
+    if (!strcasecmp(argv[1], "-")) {
+        conf2[2] = '\x00';
     } else {
-        perror(" ! Frequency out of range");
-        cleanup();
+        ret = sscanf(argv[1], "%d", &ival);
+        if (ret == 1) {
+            if (ival >= 0 && ival <= 23) {
+                conf2[2] = (ival%6)<<4 | (23-ival)/6;
+            } else {
+                fprintf(stderr, "TX must be from 0 to 23\n");
+                return 1;
+            }
+        } else {
+            fprintf(stderr, "TX must be integer\n");
+            return 1;
+        }
     }
-	
-    hexdata[0]=0x00;
-    hexdata[1]=0x50;
-    hexdata[2]=freq_2;
-    hexdata[3]=freq_3;
-    hexdata[4]=0x78;
-    hexdata[5]=0x19;
-    hexdata[6]=0x00;
-    hexdata[7]=0x44;
+
+    // get preemphasis
+    if (!strcasecmp(argv[2], "-") || !strcasecmp(argv[2], "50us")) {
+        conf2[3] |= PREEM_50;
+    } else if (!strcasecmp(argv[2], "75us")) {
+        conf2[3] |= PREEM_75;
+    } else {
+        fprintf(stderr, "preemphasis must be either 50us or 75us\n");
+        return 1;
+    }
+
+    // get channels
+    if (!strcasecmp(argv[3], "-") || !strcasecmp(argv[3], "stereo")) {
+        conf2[3] |= STEREO;
+    } else if (!strcasecmp(argv[3], "mono")) {
+        conf2[3] |= MONO;
+    } else {
+        fprintf(stderr, "channels must be mono or stereo\n");
+        return 1;
+    }
+
+    // get frequency
+    if (!strcasecmp(argv[4], "-")) {
+        fval = 90.0f;
+    } else {
+        ret = sscanf(argv[4], "%f", &fval);
+        if (ret == 1) {
+            if (fval < 76.0f || fval > 108.0f) {
+                fprintf(stderr, "frequency must be from 76.0 to 108.0\n");
+                return 1;
+            }
+        } else {
+            fprintf(stderr, "frequency must be float\n");
+            return 1;
+        }
+    }
+    long int ifreq = lround(20.0f*(fval-76.0f));
+    conf1[2] = (ifreq >> 8) & 0xff;
+    conf1[3] = ifreq & 0xff;
+
+    // get PA
+    if (!strcasecmp(argv[5], "-")) {
+        conf1[4] = 120;
+    } else {
+        ret = sscanf(argv[5], "%d", &ival);
+        if (ret == 1) {
+            if (ival >= 30 && ival <= 120) {
+                conf1[4] = ival;
+            } else {
+                fprintf(stderr, "PA ust be from 30 to 120\n");
+                return 1;
+            }
+        } else {
+            fprintf(stderr, "PA must be integer\n");
+            return 1;
+        }
+    }
+
+    // get enable
+    if (!strcasecmp(argv[6], "-") || !strcasecmp(argv[6], "enable")) {
+        conf1[5] |= ENABLE;
+    } else if (!strcasecmp(argv[6], "disable")) {
+        conf1[5] |= DISABLE;
+    } else {
+        fprintf(stderr, "must be enable or disable");
+        return 1;
+    }
+
+    // get mute
+    if (!strcasecmp(argv[7], "-") || !strcasecmp(argv[7], "unmute")) {
+        conf1[5] |= UNMUTE;
+    } else if (!strcasecmp(argv[7], "mute")) {
+        conf1[5] |= MUTE;
+    } else {
+        fprintf(stderr, "mute must be mute or unmute");
+        return 1;
+    }
+    conf1[5] |= FREQ;
 
     //fprintf (stderr,"%d freq_3 %x freqhex %s hexdata \n",freq_3,freq_3,hexdata);
 
@@ -137,7 +220,7 @@ int main(int argc, char *argv[]) {
     rc = usb_claim_interface(keenehandle,2);
     // If not, we might need to wrestle the keene off the HID driver
     if (rc==-16) {
-	    //need to grab the device the second bit of the HID device
+            //need to grab the device the second bit of the HID device
             rc = usb_detach_kernel_driver_np(keenehandle,2);
             if(rc < 0) {
                 perror(" ! usbhid wouldn't let go?");
@@ -153,20 +236,9 @@ int main(int argc, char *argv[]) {
         perror(" ! Error claiming the interface (claim interface 2)");
         cleanup();
     }
-    //fprintf(stderr," + Done\n");
-    //right we have the device do some stuff to it
-    //keep it simple.. set stereo, set frequency, set gain, set on
 
-    //freq data = "\x00\x50\x01\x1b\x78\x19\x00\x34"
-    //the fourth character 0x00=88.75
-    // 0x40=92.00, one increment =0.05`
-    // 0xe0=100.00
-    // 0xff=101.55
-    keene_sendget(keenehandle,hexdata);
-
-    //Device setup this line should set the TX gain fully on
-    //Should set to Europe de-em, Stereo, 50khz, and Europe Band
-    keene_sendget(keenehandle, "\x00\x51\x50\x20\x00\x00\x00\x44") ;
+    keene_sendget(keenehandle,conf1);
+    keene_sendget(keenehandle,conf2);
 
     cleanup();
 }
