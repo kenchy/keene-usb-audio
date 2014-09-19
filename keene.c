@@ -1,246 +1,219 @@
+#include <assert.h>
 #include <stdio.h>
-#include <string.h>
 #include <usb.h>
-#include <math.h>
 #include <errno.h>
-
-extern int errnol;
-usb_dev_handle  *keenehandle;
+#include <unistd.h>
+#include <stdlib.h>
+#include <getopt.h>
 
 #define keeneVID  0x046d
 #define keenePID  0x0a0e
 
-// ** cleanup() *****************************************************
-void cleanup() {
-    usb_set_debug(0);
-    // if we have the USB device, hand it back
-    if (keenehandle) {
-        usb_release_interface(keenehandle,2);
-    }
-    usb_close(keenehandle);
-    exit(errno);
+#define MSGLEN 8
+
+#define PREEMPHASIS 0x04
+#define MONO 		0x01
+#define FREQ 		0x10
+
+#define ENABLE 		0x01
+#define DISABLE 	0x02
+#define MUTE 		0x04
+#define UNMUTE 		0x08
+
+void cleanup(usb_dev_handle* keenehandle)
+{
+	assert(keenehandle);
+	
+	usb_set_debug(0);
+	usb_release_interface(keenehandle, 2);
+	usb_close(keenehandle);
 }
 
-usb_dev_handle * GetFirstDevice(int vendorid, int productid) {
-  struct usb_bus    *bus;
-  struct usb_device *dev;
+usb_dev_handle* GetFirstDevice(int vendorid, int productid)
+{
+	struct usb_bus    *bus;
+	struct usb_device *dev;
 
-  usb_dev_handle    *device_handle = NULL; // it's a null
+	usb_init();
+	usb_set_debug(0);     /* 3 is the max setting */
+	(void)usb_find_busses();
+	(void)usb_find_devices();
 
-  usb_init();
-  usb_set_debug(0);     /* 3 is the max setting */
+	/* Loop through each bus and device until you find the first match
+	* open it and return it's usb device handle */
 
-  usb_find_busses();
-  usb_find_devices();
- 
-  // Loop through each bus and device until you find the first match
-  // open it and return it's usb device handle
-
-  for (bus = usb_busses; bus; bus = bus->next) {
-    for (dev = bus->devices; dev; dev = dev->next) {
-      //if (dev->descriptor.idVendor == vendorid && dev->descriptor.idProduct == productid) {  
-      if (dev->descriptor.idVendor == vendorid) {  
-    device_handle = usb_open(dev);
-    //
-    // No device found
-    if(!device_handle) {
-      return NULL;
-    }
-    //fprintf(stderr," + Found audio transmiter on bus %s dev %s\n", dev->bus->dirname, dev->filename);
-    return (device_handle);    
-      }
-    }
-  }
-  errno = ENOENT;       // No such device
-  return (device_handle);  
+	for (bus = usb_busses; bus; bus = bus->next) {
+		for (dev = bus->devices; dev; dev = dev->next) {
+			if (dev->descriptor.idVendor != vendorid) continue;
+			if (dev->descriptor.idProduct != productid) continue;
+			return usb_open(dev);
+		}
+	}
+	return NULL;  
 }
 
-int help(char *prog) {
-   printf("Usage: %s tx pre chan freq pa enable mute\n", prog);
-   printf(" The arguments correspond to\n  - TX (0-23)\n  - preemphasis (50us or 75us)\n  - channels (mono or stereo)\n  - frequency (floats from 76.0-108.0)\n  - PA (30 to 120)\n  - enable or disable\n  - mute or unmute\n If one of the arguments is - the default value is set.\n");
-   printf("\nExample: %s 0 50us stereo 90.0f 120 enable unmute\n", prog);
-
-   return 1;
+int check_values(int p_gain, int p_chan, int p_freq, int p_pa)
+{
+	if (p_gain < 0 || p_gain > 7)
+		fprintf(stderr, "Gain must be in range [0 .. 7]\n");
+	else if (p_chan > 2 || p_chan < 1)
+		fprintf(stderr, "Channels must be in range [1,2]\n");
+	else if ((p_freq > 108 || p_freq < 76) && p_freq != 0)
+		fprintf(stderr, "Channels must be in range [76.00 .. 108.00]\n");
+	else if (p_pa > 120 || p_pa < 30)
+		fprintf(stderr, "PA must be in range [30,120]\n");
+	else return 0;
+	return 1;
 }
 
-
-int keene_sendget(usb_dev_handle *handle, char *senddata ) {
-    unsigned char buf[64];
-    int rc;
-
-    memcpy(buf, senddata, 0x0000008);
-    rc = usb_control_msg(handle, USB_TYPE_CLASS + USB_RECIP_INTERFACE, 0x0000009, 0x0000200, 0x0000002, buf, 0x0000008, 1000);
-    //printf("30 control msg returned %d", rc);
-    //printf("\n");
-
-    if(rc < 0) {
-            perror(" ! Transfer error");
-        cleanup();
-    }
+void help(char *prog)
+{
+	printf("Usage: %s [OPTIONS]\n", prog);
+	printf("OPTIONS:\n");
+	printf("  -g, --gain=GAIN       Transmission gain [0..7] default 7\n");
+	printf("  -c, --channels=NCHAN  Number of channels [1..2] default 2\n");
+	printf("  -f, --frequency=FREQ  Transmission frequency [76.00..108.00]\n");
+	printf("  -P, --PA=PA           Unknown [30..120] default 120\n");
+	printf("  -e, --emphasis        75uS emphasis instead of 50uS\n");
+	printf("  -d, --disbale         Do not transmit\n");
+	printf("  -m, --mute            Transmit silence\n");
+	printf("  -v, --verbose         Print more to stderr\n");
+	printf("  -h, --help            Show this help\n");
 }
 
-// ** main() ********************************************************
-int main(int argc, char *argv[]) {
-    int rc;
-    int freq_2;
-    int freq_3;
-    int freq_in;
+/*
+ * Send data to device. Data must be at least 8 bytes
+ * return 0 on success, 1 otherwise
+ * */
+int keene_sendget(usb_dev_handle *handle, char *senddata)
+{
+	int bytes_written;
+	bytes_written = usb_control_msg(handle, USB_TYPE_CLASS|USB_RECIP_INTERFACE,
+		9, 512, 2, senddata, MSGLEN, 1000);
+	return bytes_written != MSGLEN;
+}
 
-    if (argc != 8) {
-        return help(argv[0]);
-    }
+int main(int argc, char *argv[])
+{
+	usb_dev_handle  *keenehandle;
+	int c, status, ifreq;
 
-    // most of the following code was taken from
-    // http://blog.mister-muffin.de/2011/03/14/keene-fm-transmitter/
-    // and thus is Copyright (C) 2010-2011 Johannes 'josch' Schauer <j.schauer at email.de>
-    // and probably the GPLv3 applies now
-    enum settings {
-        PREEM_50 = 0x00,
-        PREEM_75 = 0x04,
-        STEREO = 0x00,
-        MONO = 0x01,
-        ENABLE = 0x01,
-        DISABLE = 0x2,
-        MUTE = 0x04,
-        UNMUTE = 0x08,
-        FREQ = 0x10
-    };
+	/* setting defaults */
+	int p_gain = 7;
+	int p_chan = 2;
+	int p_pa = 120;
+	int p_emph = 0;
+	int p_off = 0;
+	int p_mute = 0;
+	float p_freq = 0;
+	int p_verbose = 0;
 
-    unsigned char conf1[8] = "\x00\x50\x00\x00\x00\x00\x00\x00";
-    unsigned char conf2[8] = "\x00\x51\x00\x00\x00\x00\x00\x00";
+	char conf1[MSGLEN] = "\x00\x50\x00\x00\x00\x00\x00\x00";
+	char conf2[MSGLEN] = "\x00\x51\x00\x00\x00\x00\x00\x00";
 
-    int ival, ret;
-    float fval;
+	/* parsing cmdline args */
+	while (1) {
+		int option_index = 0;
+		static struct option long_options[] = {
+			{"gain",        required_argument, 0, 'g'},
+			{"channels",    required_argument, 0, 'c'},
+			{"frequency",   required_argument, 0, 'f'},
+			{"PA",          required_argument, 0, 'P'},
+			{"emphasis",    no_argument,       0, 'e'},
+			{"disable",     no_argument,       0, 'd'},
+			{"mute",        no_argument,       0, 'm'},
+			{"help",        no_argument,       0, 'h'},
+			{"verbose",     no_argument,       0, 'v'},
+			{0,             0,                 0,  0 }
+		};
 
-    // get TX
-    if (!strcasecmp(argv[1], "-")) {
-        conf2[2] = '\x00';
-    } else {
-        ret = sscanf(argv[1], "%d", &ival);
-        if (ret == 1) {
-            if (ival >= 0 && ival <= 23) {
-                conf2[2] = (ival%6)<<4 | (23-ival)/6;
-            } else {
-                fprintf(stderr, "TX must be from 0 to 23\n");
-                return 1;
-            }
-        } else {
-            fprintf(stderr, "TX must be integer\n");
-            return 1;
-        }
-    }
+		c = getopt_long(argc, argv, "g:c:f:P:vdemh",
+				long_options, &option_index);
+		if (c == -1) break;
 
-    // get preemphasis
-    if (!strcasecmp(argv[2], "-") || !strcasecmp(argv[2], "50us")) {
-        conf2[3] |= PREEM_50;
-    } else if (!strcasecmp(argv[2], "75us")) {
-        conf2[3] |= PREEM_75;
-    } else {
-        fprintf(stderr, "preemphasis must be either 50us or 75us\n");
-        return 1;
-    }
+		switch (c) {
+			case 'g': p_gain = atoi(optarg); break;
+			case 'c': p_chan = atoi(optarg); break;
+			case 'f': p_freq = atof(optarg); break;
+			case 'P': p_pa   = atoi(optarg); break;
+			case 'd': p_off  = 1; break;
+			case 'm': p_mute = 1; break;
+			case 'e': p_emph = 1; break;
+			case 'v': p_verbose = 1; break;
+			case 'h': help(argv[0]); exit(0);
+		}
+	}
 
-    // get channels
-    if (!strcasecmp(argv[3], "-") || !strcasecmp(argv[3], "stereo")) {
-        conf2[3] |= STEREO;
-    } else if (!strcasecmp(argv[3], "mono")) {
-        conf2[3] |= MONO;
-    } else {
-        fprintf(stderr, "channels must be mono or stereo\n");
-        return 1;
-    }
+	if (optind < argc) {
+		printf("non-option ARGV-elements: ");
+		while (optind < argc)
+			printf("%s ", argv[optind++]);
+		printf("\n");
+	}
 
-    // get frequency
-    if (!strcasecmp(argv[4], "-")) {
-        fval = 90.0f;
-    } else {
-        ret = sscanf(argv[4], "%f", &fval);
-        if (ret == 1) {
-            if (fval < 76.0f || fval > 108.0f) {
-                fprintf(stderr, "frequency must be from 76.0 to 108.0\n");
-                return 1;
-            }
-        } else {
-            fprintf(stderr, "frequency must be float\n");
-            return 1;
-        }
-    }
-    long int ifreq = lround(20.0f*(fval-76.0f));
-    conf1[2] = (ifreq >> 8) & 0xff;
-    conf1[3] = ifreq & 0xff;
+	/* Sanity check */
+	if (check_values(p_gain , p_chan, p_freq, p_pa))
+		exit(1);
 
-    // get PA
-    if (!strcasecmp(argv[5], "-")) {
-        conf1[4] = 120;
-    } else {
-        ret = sscanf(argv[5], "%d", &ival);
-        if (ret == 1) {
-            if (ival >= 30 && ival <= 120) {
-                conf1[4] = ival;
-            } else {
-                fprintf(stderr, "PA ust be from 30 to 120\n");
-                return 1;
-            }
-        } else {
-            fprintf(stderr, "PA must be integer\n");
-            return 1;
-        }
-    }
+	if (p_verbose){
+		fprintf(stderr, "gain %d\n", p_gain);
+		fprintf(stderr, "chan %d\n", p_chan);
+		if (p_freq)
+			fprintf(stderr, "freq %.2f\n", p_freq);
+		fprintf(stderr, "pa %d\n", p_pa);
+		fprintf(stderr, "off %d\n", p_off);
+		fprintf(stderr, "mute %d\n", p_mute);
+		fprintf(stderr, "emph %d\n", p_emph);
+	}
 
-    // get enable
-    if (!strcasecmp(argv[6], "-") || !strcasecmp(argv[6], "enable")) {
-        conf1[5] |= ENABLE;
-    } else if (!strcasecmp(argv[6], "disable")) {
-        conf1[5] |= DISABLE;
-    } else {
-        fprintf(stderr, "must be enable or disable");
-        return 1;
-    }
+	ifreq = 20*p_freq - 1520;
+	
+	conf1[2] = (ifreq >> 8) & 0xff;
+	conf1[3] = ifreq & 0xff;
+	conf1[4] = p_pa; /* What is PA? */	
+	conf1[5] = p_off?DISABLE:ENABLE | p_mute?MUTE:UNMUTE;
 
-    // get mute
-    if (!strcasecmp(argv[7], "-") || !strcasecmp(argv[7], "unmute")) {
-        conf1[5] |= UNMUTE;
-    } else if (!strcasecmp(argv[7], "mute")) {
-        conf1[5] |= MUTE;
-    } else {
-        fprintf(stderr, "mute must be mute or unmute");
-        return 1;
-    }
-    conf1[5] |= FREQ;
+	/* Only change frequency when explicitly set by user */
+	if (p_freq)
+		conf1[5] |= FREQ;
+	conf2[2] = (p_gain&0x07)<<4; /*NOTE: lower nibble does the same-ish?*/
+	if (p_emph)
+		conf2[3] |= PREEMPHASIS;
+	if (p_chan == 1)
+		conf2[3] |= MONO;
 
-    //fprintf (stderr,"%d freq_3 %x freqhex %s hexdata \n",freq_3,freq_3,hexdata);
+	/* Find the USB device to connect */
+	keenehandle = GetFirstDevice(keeneVID, keenePID); /* sets errno */
+	if (!keenehandle) {
+		perror("Error opening device");
+		exit(errno);
+	}
 
-    keenehandle = GetFirstDevice(keeneVID,keenePID);
+	/* See if we can talk to the device.
+	 * If not, we might need to wrestle the keene off the HID driver */
+	status = usb_claim_interface(keenehandle, 2);
+	if (status == -EBUSY) {
+		/* need to grab the device the second bit of the HID device */
+		status = usb_detach_kernel_driver_np(keenehandle, 2);
+		if(status < 0) {
+			perror("Driver did not release device");
+		} else {
+			/* try again */
+			status = usb_claim_interface(keenehandle, 2);
+		}
+	}
 
-    // Find the USB connect
-    if (!keenehandle) {
-        perror(" ! Error opening device!");
-        exit(errno);
-    }
+	if (status != 0) {
+		perror("Can't claim USB device");
+		cleanup(keenehandle);
+		return 1;
+	}
 
-    // See if we can talk to the device.
-    rc = usb_claim_interface(keenehandle,2);
-    // If not, we might need to wrestle the keene off the HID driver
-    if (rc==-16) {
-            //need to grab the device the second bit of the HID device
-            rc = usb_detach_kernel_driver_np(keenehandle,2);
-            if(rc < 0) {
-                perror(" ! usbhid wouldn't let go?");
-                cleanup();
-            }
-        // try again
-        rc = usb_claim_interface(keenehandle,2);
-    }
-
-    // Claim the interface
-    rc = usb_claim_interface(keenehandle,2);
-    if(rc < 0) {
-        perror(" ! Error claiming the interface (claim interface 2)");
-        cleanup();
-    }
-
-    keene_sendget(keenehandle,conf1);
-    keene_sendget(keenehandle,conf2);
-
-    cleanup();
+	if (keene_sendget(keenehandle, conf1) ||
+		keene_sendget(keenehandle, conf2)) {
+		perror("Unable to send all bytes.");
+		status = 1;
+	}
+	cleanup(keenehandle);
+	return status;
 }

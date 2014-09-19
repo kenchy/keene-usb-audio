@@ -13,7 +13,7 @@ Compiling:
 
 You need libusb and libusb-dev (in Debian apt-get install libusb libusb-dev),
 
-gcc -o keene keene.c -lusb
+gcc -o keene keene.c -lusb -lm
 
 Usage:
 
