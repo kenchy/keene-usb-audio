@@ -13,15 +13,23 @@ Compiling:
 
 You need libusb and libusb-dev (in Debian apt-get install libusb libusb-dev),
 
-gcc -o keene keene.c -lusb
+gcc -o keene keene.c -lusb -lm
 
 Usage:
 
 When you plug the device in, it presents as a composite device, one is the audio device, the other a HID device, which controls the radio elements. On one of my PC's the alsa control is set to 0 after the device is plugged in, set this to 70-80, if the audio is distorted try reducing this.
 
-The program currently accepts one argument which is the FM transmitter frequency without a decimal point, e.g. 98.80 is 9880, execute the program like:
-
-./keene 9880
+Usage: ./keene [OPTIONS]
+OPTIONS:
+  -g, --gain=GAIN       Transmission gain [0..7] default 7
+  -c, --channels=NCHAN  Number of channels [1..2] default 2
+  -f, --frequency=FREQ  Transmission frequency [76.00..108.00]
+  -P, --PA=PA           Unknown [30..120] default 120
+  -e, --emphasis        75uS emphasis instead of 50uS
+  -d, --disable         Do not transmit
+  -m, --mute            Transmit silence
+  -v, --verbose         Print more to stderr
+  -h, --help            Show this help
 
 When excuted the program will attempt to set the frequency as set, it will set the tx gain to full, kick the device into stereo, and set it to use European FM, as such the frequencies available are 87.50 - 108.00 (8750 - 10800). The increments available are 0.05, if you call 8881 for example it will round to 88.80.
 

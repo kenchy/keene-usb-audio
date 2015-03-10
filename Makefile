@@ -1,26 +1,22 @@
-IDIR =../include
-CC=gcc
-CFLAGS=-I$(IDIR)
-
 ODIR=obj
-LDIR =../lib
 
-LIBS=-lusb
+CC=gcc
+CFLAGS=-Wall -Wpedantic
+LIBS=-lusb -lm
 
-#_DEPS = hellomake.h
-DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
+BIN=keene
+OBJ = keene.o
 
-_OBJ = keene.o
-OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
+_OBJ = $(patsubst %,$(ODIR)/%,$(OBJ))
 
+ALL: keene
 
-$(ODIR)/%.o: %.c $(DEPS)
+$(ODIR)/%.o: %.c
 	$(CC) -c -o $@ $< $(CFLAGS)
-
-keene: $(OBJ)
+$(BIN): $(_OBJ)
 	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
 
 .PHONY: clean
 
 clean:
-	rm -f $(ODIR)/*.o *~ core $(IDIR)/*~ 
+	rm -f $(ODIR)/*.o keene
