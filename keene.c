@@ -23,7 +23,7 @@
 void cleanup(usb_dev_handle* keenehandle)
 {
 	assert(keenehandle);
-	
+
 	usb_set_debug(0);
 	usb_release_interface(keenehandle, 2);
 	usb_close(keenehandle);
@@ -49,7 +49,7 @@ usb_dev_handle* GetFirstDevice(int vendorid, int productid)
 			return usb_open(dev);
 		}
 	}
-	return NULL;  
+	return NULL;
 }
 
 int check_values(int p_gain, int p_chan, int p_freq, int p_pa)
@@ -75,7 +75,7 @@ void help(char *prog)
 	printf("  -f, --frequency=FREQ  Transmission frequency [76.00..108.00]\n");
 	printf("  -P, --PA=PA           Unknown [30..120] default 120\n");
 	printf("  -e, --emphasis        75uS emphasis instead of 50uS\n");
-	printf("  -d, --disbale         Do not transmit\n");
+	printf("  -d, --disable         Do not transmit\n");
 	printf("  -m, --mute            Transmit silence\n");
 	printf("  -v, --verbose         Print more to stderr\n");
 	printf("  -h, --help            Show this help\n");
@@ -167,10 +167,10 @@ int main(int argc, char *argv[])
 	}
 
 	ifreq = 20*p_freq - 1520;
-	
+
 	conf1[2] = (ifreq >> 8) & 0xff;
 	conf1[3] = ifreq & 0xff;
-	conf1[4] = p_pa; /* What is PA? */	
+	conf1[4] = p_pa; /* What is PA? */
 	conf1[5] = p_off?DISABLE:ENABLE | p_mute?MUTE:UNMUTE;
 
 	/* Only change frequency when explicitly set by user */

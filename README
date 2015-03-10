@@ -26,7 +26,7 @@ OPTIONS:
   -f, --frequency=FREQ  Transmission frequency [76.00..108.00]
   -P, --PA=PA           Unknown [30..120] default 120
   -e, --emphasis        75uS emphasis instead of 50uS
-  -d, --disbale         Do not transmit
+  -d, --disable         Do not transmit
   -m, --mute            Transmit silence
   -v, --verbose         Print more to stderr
   -h, --help            Show this help
